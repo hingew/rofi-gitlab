@@ -20,7 +20,4 @@
 # Go workspace file
 go.work
 
-config.json
-cache.json
-
 rofi-gitlab
