@@ -10,14 +10,15 @@ import (
 const configFileName string = "config.json"
 
 type Config struct {
-	BaseUrl string
-	Token   string
-	TTL     int
-	Choosen string
+	BaseUrl         string
+	Token           string
+	TTL             int
+	SelectedProject string
+	ShowIssue       bool
 }
 
 func New() *Config {
-	return &Config{BaseUrl: "", Token: "", TTL: 600, Choosen: ""}
+	return &Config{BaseUrl: "", Token: "", TTL: 600, SelectedProject: ""}
 }
 
 func Read() (error, *Config) {

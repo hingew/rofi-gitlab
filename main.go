@@ -10,6 +10,7 @@ import (
 	"path"
 	"rofi-gitlab/config"
 	"rofi-gitlab/data"
+	"strings"
 	"time"
 )
 
@@ -20,28 +21,33 @@ const (
 	Project              = "Project"
 	Environments         = "Environments"
 	MergeRequests        = "Merge Requests"
+	Logs                 = "Logs"
 )
 
 func main() {
 	args := os.Args[1:]
+	options := []string{Project, Issues, Pipelines, Boards, Logs, Environments, MergeRequests}
 
 	err, config := config.Read()
-	options := []string{Issues, Pipelines, Boards, Project, Environments, MergeRequests}
 
 	if err != nil {
 		log.Fatal(err)
 	}
+	err, cache := data.ReadCache()
 
-	if config.Choosen == "" && len(args) == 0 {
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(args) == 0 {
 		projects := getGitlabProjects(config)
 		for _, project := range projects {
 			fmt.Println(project.Name)
 		}
 		return
-	}
+	} else if config.SelectedProject == "" && len(args) > 0 {
+		config.SelectedProject = args[0]
+		config.Write()
 
-	if config.Choosen == "" && len(args) > 0 {
-		config.Choosen = args[0]
 		if err := config.Write(); err != nil {
 			log.Fatal(err)
 		}
@@ -50,31 +56,72 @@ func main() {
 			fmt.Println(option)
 		}
 		return
+	} else if config.SelectedProject != "" && config.ShowIssue && len(args) > 0 {
+		id := strings.Replace(strings.Fields(args[0])[0], "#", "", -1)
+		open(config.BaseUrl, path.Join(config.SelectedProject, "-", "issues", id))
+
+		config.SelectedProject = ""
+		config.ShowIssue = false
+		config.Write()
+	} else {
+		performAction(config, cache, args[0])
 	}
 
-	exec.Command("xdg-open", path.Join(config.BaseUrl, getPath(config.Choosen, args[0]))).Start()
-
-	config.Choosen = ""
-	config.Write()
 }
 
-func getPath(project string, option string) string {
+func open(baseUrl string, subPath string) {
+	exec.Command("xdg-open", path.Join(baseUrl, subPath)).Start()
+}
+
+func performAction(config *config.Config, cache *data.Cache, option string) {
+	project := config.SelectedProject
 	switch option {
 	case Issues:
-		return path.Join(project, "-", "issues")
+		issues := getProjectIssues(config, cache.ProjectID(project))
+		config.ShowIssue = true
+		config.Write()
+
+		for _, issue := range issues {
+			fmt.Println(issue.ShowTitle())
+		}
 	case Pipelines:
-		return path.Join(project, "-", "pipelines")
+		open(config.BaseUrl, path.Join(project, "-", "pipelines"))
 	case Boards:
-		return path.Join(project, "-", "boards")
+		open(config.BaseUrl, path.Join(project, "-", "boards"))
 	case Environments:
-		return path.Join(project, "-", "environments")
+		open(config.BaseUrl, path.Join(project, "-", "environments"))
 	case MergeRequests:
-		return path.Join(project, "-", "merge_requests")
+		open(config.BaseUrl, path.Join(project, "-", "merge_requests"))
+	case Logs:
+		open(config.BaseUrl, path.Join(project, "-", "logs"))
 	case Project:
-		return project
+		open(config.BaseUrl, project)
 	default:
-		return project
+		open(config.BaseUrl, project)
 	}
+
+}
+
+func getProjectIssues(config *config.Config, projectID int) []data.Issue {
+	err, cache := data.ReadCache()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	issues, exists := cache.Issues[config.SelectedProject]
+
+	if !exists {
+		err = get(config.BaseUrl+fmt.Sprintf("/api/v4/projects/%d/issues?state=opened", projectID), config.Token, &issues)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cache.Issues[config.SelectedProject] = issues
+		cache.Write()
+	}
+
+	return issues
 
 }
 
@@ -86,11 +133,12 @@ func getGitlabProjects(config *config.Config) []data.Project {
 		log.Fatal(err)
 	}
 
-	now := time.Now()
-	ttl := cache.Timestamp.Add(time.Second * time.Duration(config.TTL))
+	// now := time.Now()
+	// ttl := cache.Timestamp.Add(time.Second * time.Duration(config.TTL))
 
 	// check if cache is valid
-	if ttl.Before(now) {
+	// if ttl.Before(now) {
+	if len(cache.Projects) == 0 {
 		var projects []data.Project
 
 		err = get(config.BaseUrl+"/api/v4/projects?simple=true&per_page=100", config.Token, &projects)
@@ -123,4 +171,8 @@ func get(url string, token string, target interface{}) error {
 	defer resp.Body.Close()
 
 	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+func toRofiString(label string, value string) string {
+	return value + `\0info\x1` + value
 }
