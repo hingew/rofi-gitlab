@@ -39,14 +39,17 @@ func main() {
 		log.Fatal(err)
 	}
 	if len(args) == 0 {
+		cache.SelectedProject = ""
+		cache.ShowIssue = false
+		cache.Write()
 		projects := getGitlabProjects(config)
 		for _, project := range projects {
 			fmt.Println(project.Name)
 		}
 		return
-	} else if config.SelectedProject == "" && len(args) > 0 {
-		config.SelectedProject = args[0]
-		config.Write()
+	} else if cache.SelectedProject == "" && len(args) > 0 {
+		cache.SelectedProject = args[0]
+		cache.Write()
 
 		if err := config.Write(); err != nil {
 			log.Fatal(err)
@@ -56,12 +59,12 @@ func main() {
 			fmt.Println(option)
 		}
 		return
-	} else if config.SelectedProject != "" && config.ShowIssue && len(args) > 0 {
+	} else if cache.SelectedProject != "" && cache.ShowIssue && len(args) > 0 {
 		id := strings.Replace(strings.Fields(args[0])[0], "#", "", -1)
-		open(config.BaseUrl, path.Join(config.SelectedProject, "-", "issues", id))
+		open(config.BaseUrl, path.Join(cache.SelectedProject, "-", "issues", id))
 
-		config.SelectedProject = ""
-		config.ShowIssue = false
+		cache.SelectedProject = ""
+		cache.ShowIssue = false
 		config.Write()
 	} else {
 		performAction(config, cache, args[0])
@@ -74,11 +77,11 @@ func open(baseUrl string, subPath string) {
 }
 
 func performAction(config *config.Config, cache *data.Cache, option string) {
-	project := config.SelectedProject
+	project := cache.SelectedProject
 	switch option {
 	case Issues:
 		issues := getProjectIssues(config, cache.ProjectID(project))
-		config.ShowIssue = true
+		cache.ShowIssue = true
 		config.Write()
 
 		for _, issue := range issues {
@@ -109,7 +112,7 @@ func getProjectIssues(config *config.Config, projectID int) []data.Issue {
 		log.Fatal(err)
 	}
 
-	issues, exists := cache.Issues[config.SelectedProject]
+	issues, exists := cache.Issues[cache.SelectedProject]
 
 	if !exists {
 		err = get(config.BaseUrl+fmt.Sprintf("/api/v4/projects/%d/issues?state=opened", projectID), config.Token, &issues)
@@ -117,7 +120,7 @@ func getProjectIssues(config *config.Config, projectID int) []data.Issue {
 			log.Fatal(err)
 		}
 
-		cache.Issues[config.SelectedProject] = issues
+		cache.Issues[cache.SelectedProject] = issues
 		cache.Write()
 	}
 
@@ -133,11 +136,6 @@ func getGitlabProjects(config *config.Config) []data.Project {
 		log.Fatal(err)
 	}
 
-	// now := time.Now()
-	// ttl := cache.Timestamp.Add(time.Second * time.Duration(config.TTL))
-
-	// check if cache is valid
-	// if ttl.Before(now) {
 	if len(cache.Projects) == 0 {
 		var projects []data.Project
 

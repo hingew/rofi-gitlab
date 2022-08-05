@@ -13,12 +13,10 @@ type Config struct {
 	BaseUrl         string
 	Token           string
 	TTL             int
-	SelectedProject string
-	ShowIssue       bool
 }
 
 func New() *Config {
-	return &Config{BaseUrl: "", Token: "", TTL: 600, SelectedProject: ""}
+	return &Config{BaseUrl: "", Token: "", TTL: 600}
 }
 
 func Read() (error, *Config) {
