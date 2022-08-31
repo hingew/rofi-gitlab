@@ -11,11 +11,15 @@ import (
 const cacheFileName string = "cache.json"
 
 type Cache struct {
-	Projects        []Project          `json:"projects"`
-	Timestamp       time.Time          `json:"timestamp"`
-	Issues          map[string][]Issue `json:"issues"`
-	SelectedProject string             `json:"selected_project"`
-	ShowIssue       bool               `json:"show_issue"`
+	Projects        []Project            `json:"projects"`
+	Timestamp       time.Time            `json:"timestamp"`
+	Issues          map[string]IssueList `json:"issues"`
+	SelectedProject string               `json:"selected_project"`
+}
+
+type IssueList struct {
+	List      []Issue   `json:"issues"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 func (c *Cache) ProjectID(path string) int {

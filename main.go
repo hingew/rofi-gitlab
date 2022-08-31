@@ -38,9 +38,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if len(args) == 0 {
 		cache.SelectedProject = ""
-		cache.ShowIssue = false
 		cache.Write()
 		projects := getGitlabProjects(config)
 		for _, project := range projects {
@@ -59,12 +59,11 @@ func main() {
 			fmt.Println(option)
 		}
 		return
-	} else if cache.SelectedProject != "" && cache.ShowIssue && len(args) > 0 {
+	} else if cache.SelectedProject != "" && len(args) > 0 && strings.HasPrefix(args[0], "#") {
 		id := strings.Replace(strings.Fields(args[0])[0], "#", "", -1)
 		open(config.BaseUrl, path.Join(cache.SelectedProject, "-", "issues", id))
 
 		cache.SelectedProject = ""
-		cache.ShowIssue = false
 		config.Write()
 	} else {
 		performAction(config, cache, args[0])
@@ -81,8 +80,6 @@ func performAction(config *config.Config, cache *data.Cache, option string) {
 	switch option {
 	case Issues:
 		issues := getProjectIssues(config, cache.ProjectID(project))
-		cache.ShowIssue = true
-		config.Write()
 
 		for _, issue := range issues {
 			fmt.Println(issue.ShowTitle())
@@ -112,19 +109,19 @@ func getProjectIssues(config *config.Config, projectID int) []data.Issue {
 		log.Fatal(err)
 	}
 
-	issues, exists := cache.Issues[cache.SelectedProject]
+	issueList, exists := cache.Issues[cache.SelectedProject]
 
 	if !exists {
-		err = get(config.BaseUrl+fmt.Sprintf("/api/v4/projects/%d/issues?state=opened", projectID), config.Token, &issues)
+		err = get(config.BaseUrl+fmt.Sprintf("/api/v4/projects/%d/issues?state=opened", projectID), config.Token, &issueList.List)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		cache.Issues[cache.SelectedProject] = issues
+		cache.Issues[cache.SelectedProject] = issueList
 		cache.Write()
 	}
 
-	return issues
+	return issueList.List
 
 }
 
@@ -169,8 +166,4 @@ func get(url string, token string, target interface{}) error {
 	defer resp.Body.Close()
 
 	return json.NewDecoder(resp.Body).Decode(target)
-}
-
-func toRofiString(label string, value string) string {
-	return value + `\0info\x1` + value
 }

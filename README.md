@@ -1,6 +1,16 @@
 # rofi-gitlab
 
+> **Important** Work in Progress
+
+A rofi mode for fast gitlab navigation
+
 ## Installation
+
+Make sure you have rofi installed:
+
+```
+sudo pacman -S rofi
+```
 
 Run `go build` and `go install`. Make sure you have `$HOME/go/bin` in your `$PATH`!
 
@@ -11,7 +21,6 @@ Create a `config.json` at `$HOME/.config/rofi-gitlab` and change the values acco
  "BaseUrl": "https://gitlab.example.com",
  "Token": "<your private token>",
  "TTL": 3600, 
- "Choosen": ""
 }%
 ```
 
